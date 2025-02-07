@@ -1,0 +1,68 @@
+import pandas as pd
+from nba_api.stats.endpoints import *
+from nba_api.stats.library.parameters import SeasonAll
+
+# Players
+from nba_api.stats.endpoints import (
+    commonallplayers, commonplayerinfo, playercareerstats, playergamelog, boxscoreadvancedv2
+)
+
+# Teams
+from nba_api.stats.endpoints import (teamyearbyyearstats, leaguestandings)
+
+# Function to fetch and display data from a specific endpoint and export to Excel
+def fetch_and_display_data(endpoint, **kwargs):
+    try:
+        instance = endpoint(**kwargs)
+        data_frames = instance.get_data_frames()
+        
+        if data_frames:
+            print(f"\nData from {endpoint.__name__}:")
+            print(data_frames[0].head())  # Display the first few rows
+            return data_frames[0]  # Return the DataFrame
+        else:
+            print(f"{endpoint.__name__} returned no data.")
+            return None
+    except Exception as e:
+        print(f"Error fetching data from {endpoint.__name__}: {e}")
+        return None
+
+
+# Fetch data for all players and export
+fetch_and_display_data(commonallplayers.CommonAllPlayers)
+
+# Load the Excel file correctly
+file_path = "C:/Users/blind/Investing/all_players.xlsx"
+df = pd.read_excel(file_path, engine="openpyxl")
+
+# Filter for active players - a roster status of 1 defines active player
+active_players = df[df["ROSTERSTATUS"] == 1]
+
+# Start empty list
+all_player_data = []
+
+# loop through active players
+for _, row in active_players.iterrows():
+    player_id = row["PERSON_ID"]
+    player_name = row["DISPLAY_FIRST_LAST"]  
+
+    print(f"Fetching data for {player_name} (ID: {player_id})...")
+
+    # Fetch career stats
+    data = fetch_and_display_data(playercareerstats.PlayerCareerStats, player_id=player_id)
+
+    # Data integrity - verify data has an output
+    if data is not None:
+        # Add a new column for player name
+        data["Player_Name"] = player_name
+        all_player_data.append(data)
+
+# combines all data
+combined_data = pd.concat(all_player_data, ignore_index=True)
+
+# Change file name and location and save as excel output
+output_filename = "C:/Users/blind/Investing/all_active_players_career_stats.xlsx"
+
+combined_data.to_excel(output_filename, index=False)
+
+print(f"Data for all active players saved to {output_filename}")
